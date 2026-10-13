@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ChangeLens</title>
+
+<style>
+:root{
+  --bg:#07111f;--panel:#0d1a2d;--input:#091423;--head:#162842;
+  --border:#29405f;--text:#d8e6f6;--muted:#91a9c6;--green:#70e0a0;
+  --red:#ff9b9b;--amber:#ffdc8d;--blue:#b9d6ff;--active:#19395e;
+  --nav-width:260px;
+}
+body.light{
+  --bg:#edf2f8;--panel:#fff;--input:#f6f8fb;--head:#dfeaf7;
+  --border:#aebfd4;--text:#172033;--muted:#51657e;--green:#137a43;
+  --red:#b42318;--amber:#925d00;--blue:#0b4f9c;--active:#d6e8fd;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px Arial,Helvetica,sans-serif}
+header{
+  display:flex;justify-content:space-between;align-items:center;gap:15px;
+  padding:14px 20px;background:var(--input);border-bottom:1px solid var(--border)
+}
+h1{margin:0;font-size:21px}
+header p{margin:4px 0 0;color:var(--muted);font-size:12px}
+main{max-width:2200px;margin:auto;padding:16px 20px}
+
+button,select,input{
+  min-height:34px;padding:7px 8px;color:var(--text);background:var(--input);
+  border:1px solid var(--border);border-radius:5px;font-size:12px
+}
+button{cursor:pointer;font-weight:bold;background:#1769d2;border-color:#2f84ef}
+button:hover{background:#287ce5}
+.secondary,.filter{background:#263c58;border-color:#405e83}
+.secondary:hover,.filter:hover{background:#345070}
+body.light .secondary,body.light .filter{background:#e2eaf4;color:var(--text)}
+
+.controls{
+  display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));
+  gap:9px;padding:12px;background:var(--panel);
+  border:1px solid var(--border);border-radius:8px
+}
+.field{display:flex;flex-direction:column;gap:4px}
+label{font-size:10px;font-weight:bold;color:var(--muted);text-transform:uppercase}
+select:disabled{opacity:.75;cursor:not-allowed}
+
+.drop{
+  display:flex;flex-direction:column;justify-content:center;min-height:72px;
+  padding:10px 12px;border:2px dashed #47688e;border-radius:7px;
+  background:var(--input);cursor:pointer
+}
+.drop:hover,.drop.over{border-color:#4d9fff;background:var(--active)}
+.drop b{font-size:12px}
+.drop small{margin-top:3px;color:var(--muted);font-size:10px}
+.fileinfo{
+  margin-top:6px;color:var(--muted);font-size:10px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.fileinfo.ok{color:var(--green);font-weight:bold}
+.file{display:none}
+
+.checks,.actions{
+  grid-column:span 4;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center
+}
+.checks label{
+  display:flex;gap:5px;align-items:center;font-size:12px;
+  font-weight:normal;text-transform:none
+}
+
+#msg{
+  display:none;margin-top:12px;padding:9px;color:var(--muted);
+  background:var(--panel);border:1px solid var(--border);border-radius:5px
+}
+#msg.error{color:#ffd2d7;background:#2c161c;border-color:#8e3d4a}
+#results{display:none;margin-top:14px}
+
+.resulthead{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px
+}
+.summary{display:flex;flex-wrap:wrap;gap:6px}
+.badge{
+  padding:6px 8px;font-size:11px;background:var(--panel);
+  border:1px solid var(--border);border-radius:5px
+}
+.filters{
+  display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-left:auto
+}
+.filters b{font-size:11px;color:var(--muted)}
+.filter{min-height:28px;padding:4px 8px;font-size:11px}
+.filter.active{background:#1769d2;color:#fff}
+
+.workspace{
+  position:relative;display:grid;grid-template-columns:var(--nav-width) 7px 1fr;
+  min-width:0
+}
+.workspace.hiddennav{grid-template-columns:1fr}
+.workspace.hiddennav .navigator,
+.workspace.hiddennav .resize{display:none}
+.workspace.hiddennav .compare{padding-left:44px}
+
+.navigator{
+  height:730px;overflow:auto;padding:8px;background:var(--panel);
+  border:1px solid var(--border);border-radius:8px 0 0 8px
+}
+.navhead{
+  position:sticky;top:-8px;z-index:3;display:flex;justify-content:space-between;
+  align-items:center;padding:7px 2px 9px;background:var(--panel);
+  border-bottom:1px solid var(--border);color:var(--blue);
+  font-size:11px;font-weight:bold
+}
+.navtoggle{
+  min-height:23px;min-width:25px;padding:1px 5px;color:var(--amber);
+  background:transparent;border:0;font-size:15px
+}
+.navtoggle:hover,.showtab:hover{background:var(--active)}
+
+.showtab{
+  display:none;position:absolute;left:0;top:10px;z-index:20;min-height:32px;
+  padding:6px 9px;color:var(--amber);background:var(--panel);
+  border:1px solid var(--border);border-left:0;border-radius:0 6px 6px 0;
+  font-size:13px
+}
+.workspace.hiddennav .showtab{display:block}
+
+.navitem{
+  display:flex;justify-content:space-between;gap:6px;margin:3px 0;padding:6px;
+  cursor:pointer;border:1px solid transparent;border-radius:4px;
+  font:10px Consolas,"Courier New",monospace
+}
+.navitem:hover,.navitem.active{background:var(--active);border-color:#4d9fff}
+.navitem.changed{border-left:3px solid var(--amber)}
+.cmd{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cnt{
+  min-width:25px;padding:1px 5px;color:var(--amber);
+  background:#283d59;border-radius:10px;text-align:center
+}
+
+.resize{height:730px;background:var(--border);cursor:col-resize}
+.resize:hover,.resize.drag{background:#4d9fff}
+
+.compare{min-width:0;overflow:hidden}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.panel{
+  min-width:0;overflow:hidden;background:#050d18;
+  border:1px solid var(--border);border-radius:8px
+}
+body.light .panel,body.light .scroll{background:#fff}
+.phead{
+  padding:8px 10px;background:var(--head);
+  border-bottom:1px solid var(--border);font-size:11px;font-weight:bold
+}
+.scroll{height:680px;overflow:auto;background:#050d18}
+.content{min-width:100%;width:max-content}
+
+.section{border-bottom:1px solid var(--border)}
+.stitle{
+  display:flex;align-items:center;min-height:27px;min-width:100%;width:max-content;
+  padding:4px 8px;color:var(--blue);background:var(--head);
+  cursor:pointer;font:700 11px Consolas,"Courier New",monospace
+}
+.stitle:hover{background:var(--active)}
+.toggle{width:20px;color:var(--amber)}
+.scount{margin-left:9px;color:var(--amber);font-size:10px;font-weight:normal}
+.section.collapsed .rows{display:none}
+
+.row{
+  display:flex;min-height:21px;min-width:100%;width:max-content;
+  font:11px/1.55 Consolas,"Courier New",monospace
+}
+.cell{display:flex;padding:1px 7px;white-space:pre}
+.num{width:55px;min-width:55px;padding-right:8px;color:#607897;text-align:right}
+.added{color:#d0ffe2;background:#123b2a}
+.removed{color:#ffd0d0;background:#401d24}
+.mark{padding:0 1px;color:#fff4c9;background:#795d1c;border-radius:2px}
+.hidden{display:none!important}
+
+.unified .grid{grid-template-columns:1fr}
+.unified .current{display:none}
+
+@media(max-width:1100px){
+  .workspace,.workspace.hiddennav{grid-template-columns:1fr}
+  .workspace.hiddennav .compare{padding-left:44px}
+  .navigator{height:240px;border-radius:8px}
+  .resize{display:none}
+  .compare{margin-top:10px}
+}
+@media(max-width:850px){
+  .controls{grid-template-columns:1fr 1fr}
+  .checks,.actions{grid-column:span 2}
+  .grid{grid-template-columns:1fr}
+  .filters{width:100%;margin-left:0}
+}
+@media(max-width:560px){
+  header{flex-direction:column;align-items:flex-start}
+  main{padding:10px}
+  .controls{grid-template-columns:1fr}
+  .checks,.actions{grid-column:span 1}
+}
+</style>
+</head>
+
+<body>
+<header>
+  <div>
+    <h1>ChangeLens</h1>
+    <p>See every change. Validate every outcome.</p>
+  </div>
+  <div>
+    <button class="secondary" id="theme">Light Theme</button>
+    <button class="secondary" id="reset">Reset</button>
+  </div>
+</header>
+
+<main>
+<section class="controls">
+  <input class="file" id="preFile" type="file" accept=".txt,.log,.cfg,.conf">
+  <input class="file" id="postFile" type="file" accept=".txt,.log,.cfg,.conf">
+
+  <div class="drop" id="preDrop" tabindex="0">
+    <b>Pre-check / Baseline File</b>
+    <small>Click or drag a CLI capture or standalone configuration</small>
+    <span class="fileinfo" id="preInfo">No file selected</span>
+  </div>
+
+  <div class="drop" id="postDrop" tabindex="0">
+    <b>Post-check / Current File</b>
+    <small>Click or drag a CLI capture or standalone configuration</small>
+    <span class="fileinfo" id="postInfo">No file selected</span>
+  </div>
+
+  <div class="field">
+    <label>Baseline Device</label>
+    <select id="preDev"><option>Upload files first</option></select>
+  </div>
+
+  <div class="field">
+    <label>Current Device</label>
+    <select id="postDev"><option>Upload files first</option></select>
+  </div>
+
+  <div class="field">
+    <label for="scope">Comparison Scope</label>
+    <select id="scope">
+      <option value="all">All selected-device command outputs</option>
+      <option value="config">Config only: show run / show sdwan run</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="preset">Comparison Options</label>
+    <select id="preset">
+      <option value="smart" selected>Smart Mode</option>
+      <option value="strict">Strict Mode</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="reportFormat">Download Report</label>
+    <select id="reportFormat">
+      <option value="">Select format</option>
+      <option value="txt">TXT Report</option>
+      <option value="html">HTML Report</option>
+      <option value="pdf">Print / Save as PDF</option>
+    </select>
+  </div>
+
+  <div class="checks">
+    <label><input id="blank" type="checkbox" checked> Ignore blank lines</label>
+    <label><input id="sep" type="checkbox" checked> Ignore separators (!, #, !!, exit)</label>
+    <label><input id="white" type="checkbox" checked> Ignore whitespace-only differences</label>
+    <label><input id="case" type="checkbox" checked> Ignore case-only differences</label>
+    <label><input id="redact" type="checkbox" checked> Redact secrets</label>
+    <label><input id="dynamic" type="checkbox" checked> Ignore dynamic operational values</label>
+  </div>
+
+  <div class="checks">
+    <label><input id="sync" type="checkbox" checked> Sync vertical scrolling</label>
+    <label><input id="changesOnly" type="checkbox"> Show changes only</label>
+  </div>
+
+  <div class="actions">
+    <button id="compare">Compare</button>
+    <button class="secondary" id="view">Unified View</button>
+    <button class="secondary" id="collapse">Collapse All</button>
+  </div>
+</section>
+
+<div id="msg"></div>
+
+<section id="results">
+  <div class="resulthead">
+    <div class="summary" id="summary"></div>
+
+    <div class="filters">
+      <b>Filter:</b>
+      <button class="filter active" data-f="all">All</button>
+      <button class="filter" data-f="changes">Changes</button>
+      <button class="filter" data-f="added">Added</button>
+      <button class="filter" data-f="removed">Removed</button>
+      <button class="filter" data-f="modified">Modified</button>
+    </div>
+  </div>
+
+  <div class="workspace" id="workspace">
+    <button class="showtab" id="showNav" title="Show Command Navigator">></button>
+
+    <aside class="navigator">
+      <div class="navhead">
+        <span>COMMAND NAVIGATOR</span>
+        <button class="navtoggle" id="hideNav" title="Hide Command Navigator">&lt;</button>
+      </div>
+      <div id="navList"></div>
+    </aside>
+
+    <div class="resize" id="resize"></div>
+
+    <div class="compare" id="shell">
+      <div class="grid">
+        <div class="panel">
+          <div class="phead" id="preTitle">PRE-CHECK / BASELINE</div>
+          <div class="scroll" id="preScroll">
+            <div class="content" id="preBody"></div>
+          </div>
+        </div>
+
+        <div class="panel current">
+          <div class="phead" id="postTitle">POST-CHECK / CURRENT</div>
+          <div class="scroll" id="postScroll">
+            <div class="content" id="postBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+var STANDALONE_DEVICE_KEY = "__single_config__";
+var STANDALONE_DEVICE_LABEL = "Single Config File";
+var STANDALONE_COMMAND = "show running-config";
+
+var preText = "";
+var postText = "";
+var data = null;
+var preFileData = null;
+var postFileData = null;
+var filter = "all";
+var collapsed = false;
+var unified = false;
+var syncing = false;
+var activeId = "";
+
+function E(id) {
+  return document.getElementById(id);
+}
+
+function esc(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function msg(text, error) {
+  E("msg").textContent = text;
+  E("msg").className = error ? "error" : "";
+  E("msg").style.display = "block";
+}
+
+function hideMsg() {
+  E("msg").style.display = "none";
+}
+
+function displayDeviceName(name) {
+  return name === STANDALONE_DEVICE_KEY
+    ? STANDALONE_DEVICE_LABEL
+    : name;
+}
+
+function applyPreset(mode) {
+  var enabled = mode === "smart";
+
+  E("blank").checked = enabled;
+  E("sep").checked = enabled;
+  E("white").checked = enabled;
+  E("case").checked = enabled;
+  E("redact").checked = enabled;
+  E("dynamic").checked = enabled;
+}
+
+function fileSize(bytes) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / 1048576).toFixed(1) + " MB";
+}
+
+function fileInfo(side, file) {
+  var item = E(side === "pre" ? "preInfo" : "postInfo");
+
+  if (!file) {
+    item.textContent = "No file selected";
+    item.classList.remove("ok");
+    return;
+  }
+
+  item.textContent = "✓ " + file.name + " (" + fileSize(file.size) + ")";
+  item.classList.add("ok");
+}
+
+function read(file) {
+  return new Promise(function(resolve, reject) {
+    var reader = new FileReader();
+
+    reader.onload = function(event) {
+      resolve(event.target.result);
+    };
+
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+
+function normCmd(command) {
+  command = command.toLowerCase().trim();
+
+  if (command.indexOf("sh ") === 0) {
+    command = "show " + command.substring(3);
+  }
+
+  return command.replace(/\s+/g, " ");
+}
+
+/*
+  Parse standard terminal captures.
+  If no Cisco prompt/show command blocks exist, fall back to a single
+  standalone configuration block for GUI-downloaded/local config files.
+*/
+function parse(text) {
+  text = text
+    .replace(/^\uFEFF+|^(ï»¿)+/, "")
+    .replace(/\r/g, "");
+
+  var lines = text.split("\n");
+  var devices = {};
+  var host = "";
+  var command = "";
+  var start = -1;
+  var commandBlockFound = false;
+
+  function save(end) {
+    if (!host || !command || start < 0) return;
+
+    if (!devices[host]) {
+      devices[host] = [];
+    }
+
+    devices[host].push({
+      command: command,
+      start: start + 1,
+      output: lines.slice(start, end).join("\n")
+    });
+
+    commandBlockFound = true;
+  }
+
+  for (var i = 0; i < lines.length; i++) {
+    var match = lines[i].match(/^\s*([A-Za-z0-9_.-]+)[#>]\s*(.*)$/);
+
+    if (!match) continue;
+
+    save(i);
+
+    host = match[1];
+    command = "";
+    start = -1;
+
+    var detected = normCmd(match[2]);
+
+    if (detected.indexOf("show ") === 0) {
+      command = detected;
+      start = i + 1;
+    }
+  }
+
+  save(lines.length);
+
+  /*
+    GUI-downloaded or local configuration file fallback:
+    no prompt/show-command blocks detected.
+  */
+  if (!commandBlockFound || Object.keys(devices).length === 0) {
+    devices = {};
+    devices[STANDALONE_DEVICE_KEY] = [
+      {
+        command: STANDALONE_COMMAND,
+        start: 1,
+        output: text
+      }
+    ];
+  }
+
+  return devices;
+}
+
+function fill(select, items) {
+  select.innerHTML = "";
+
+  if (!items.length) {
+    select.innerHTML = "<option>No device detected</option>";
+    select.disabled = true;
+    return;
+  }
+
+  items.forEach(function(item) {
+    var option = document.createElement("option");
+
+    option.value = item;
+    option.textContent = displayDeviceName(item);
+
+    select.appendChild(option);
+  });
+
+  select.disabled =
+    items.length === 1 &&
+    items[0] === STANDALONE_DEVICE_KEY;
+}
+
+async function process() {
+  if (!preFileData || !postFileData) return;
+
+  try {
+    msg("Reading terminal capture files...");
+
+    preText = await read(preFileData);
+    postText = await read(postFileData);
+
+    var preParsed = parse(preText);
+    var postParsed = parse(postText);
+
+    var preDevices = Object.keys(preParsed);
+    var postDevices = Object.keys(postParsed);
+
+    fill(E("preDev"), preDevices);
+    fill(E("postDev"), postDevices);
+
+    var selectedPre = "";
+    var selectedPost = "";
+
+    /*
+      First prefer same hostname/device in both files.
+    */
+    for (var i = 0; i < preDevices.length; i++) {
+      if (postDevices.indexOf(preDevices[i]) >= 0) {
+        selectedPre = preDevices[i];
+        selectedPost = preDevices[i];
+        break;
+      }
+    }
+
+    /*
+      Then choose the first source on each side if no common hostname exists.
+    */
+    if (!selectedPre && preDevices.length) {
+      selectedPre = preDevices[0];
+    }
+
+    if (!selectedPost && postDevices.length) {
+      selectedPost = postDevices[0];
+    }
+
+    E("preDev").value = selectedPre;
+    E("postDev").value = selectedPost;
+
+    hideMsg();
+  } catch (error) {
+    msg("Unable to read uploaded files.", true);
+  }
+}
+
+function setFile(side, file) {
+  if (!file) return;
+
+  if (side === "pre") {
+    preFileData = file;
+  } else {
+    postFileData = file;
+  }
+
+  fileInfo(side, file);
+  process();
+}
+
+function setupDrop(side) {
+  var zone = E(side === "pre" ? "preDrop" : "postDrop");
+  var input = E(side === "pre" ? "preFile" : "postFile");
+
+  zone.onclick = function() {
+    input.click();
+  };
+
+  zone.onkeydown = function(event) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      input.click();
+    }
+  };
+
+  input.onchange = function() {
+    if (input.files && input.files[0]) {
+      setFile(side, input.files[0]);
+    }
+  };
+
+  zone.ondragover = function(event) {
+    event.preventDefault();
+    zone.classList.add("over");
+  };
+
+  zone.ondragleave = function() {
+    zone.classList.remove("over");
+  };
+
+  zone.ondrop = function(event) {
+    event.preventDefault();
+    zone.classList.remove("over");
+
+    if (event.dataTransfer.files && event.dataTransfer.files[0]) {
+      setFile(side, event.dataTransfer.files[0]);
+    }
+  };
+}
+
+setupDrop("pre");
+setupDrop("post");
+
+function redact(text) {
+  var patterns = [
+    /^(\s*username\s+\S+.*?\ssecret(?:\s+\d+)?\s+).*$/i,
+    /^(\s*enable secret.*?\s+).*$/i,
+    /^(\s*pre-shared-key.*?\s+(?:\d+\s+)?).*$/i,
+    /^(\s*(?:tacacs-server|radius-server).*key\s+).*$/i,
+    /^(\s*snmp-server community\s+).*$/i
+  ];
+
+  for (var i = 0; i < patterns.length; i++) {
+    if (patterns[i].test(text)) {
+      return text.replace(patterns[i], "\$1<REDACTED>");
+    }
+  }
+
+  return text;
+}
+
+function isDynamicHeader(text) {
+  return /\b(?:UPTIME|AGE|UP\/DOWN|MSGRCVD|MSGSENT|MSG RCVD|MSG SENT|TBLVER|TRANSITIONS|DEAD TIME|HOLD TIME|DURATION|ELAPSED)\b/i.test(text);
+}
+
+function maskDynamicValues(line, commandName) {
+  if (!E("dynamic").checked) {
+    return line;
+  }
+
+  var command = String(commandName || "").toLowerCase();
+  var output = line;
+
+  if (command === "show clock" && /\d{1,2}:\d{2}:\d{2}/.test(output)) {
+    return "<DYNAMIC_CLOCK_TIMESTAMP>";
+  }
+
+  /*
+    General table rows where final values are:
+    state -> uptime -> R/I/S.
+    Route counters remain visible.
+  */
+  output = output.replace(
+    /(\s+(?:up|down)\s+)\d+(?::\d+){1,4}(\s+\d+\/\d+\/\d+\s*)$/i,
+    "$1<DYNAMIC_UPTIME>$2"
+  );
+
+  /*
+    Generic labels handled in any output.
+  */
+  output = output.replace(
+    /(\b(?:msg\s*rcvd|messages?\s*received)\s*[:=]?\s*)\d+/ig,
+    "\$1<DYNAMIC_MSG_RCVD>"
+  );
+
+  output = output.replace(
+    /(\b(?:msg\s*sent|messages?\s*sent)\s*[:=]?\s*)\d+/ig,
+    "\$1<DYNAMIC_MSG_SENT>"
+  );
+
+  output = output.replace(
+    /(\b(?:uptime|age|duration|elapsed|dead\s*time|hold\s*time|transitions)\s*[:=]?\s*)\S+/ig,
+    "\$1<DYNAMIC_VALUE>"
+  );
+
+  /*
+    BGP summary table:
+    Neighbor V AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd
+    Preserve State/PfxRcd.
+  */
+  if (
+    command.indexOf("show ip bgp") === 0 ||
+    command.indexOf("show bgp") === 0
+  ) {
+    output = output.replace(
+      /^(\s*\d+\s+networks peaked at\s+).*$/i,
+      "\$1<DYNAMIC_BGP_PEAK_TIME>"
+    );
+
+    if (/^\s*\d{1,3}(?:\.\d{1,3}){3}\s+\d+\s+\d+/.test(output)) {
+      var bgp = output.trim().split(/\s+/);
+
+      if (bgp.length >= 10) {
+        bgp[3] = "<DYNAMIC_MSG_RCVD>";
+        bgp[4] = "<DYNAMIC_MSG_SENT>";
+        bgp[5] = "<DYNAMIC_TBLVER>";
+        bgp[8] = "<DYNAMIC_BGP_UPDOWN>";
+        output = bgp.join(" ");
+      }
+    }
+  }
+
+  /*
+    ARP output: retain IP, MAC, type and interface, mask Age.
+  */
+  if (
+    command.indexOf("show ip arp") === 0 ||
+    command.indexOf("show arp") === 0
+  ) {
+    if (/^\s*Internet\s+/i.test(output)) {
+      var arp = output.trim().split(/\s+/);
+
+      if (arp.length >= 6) {
+        arp[2] = "<DYNAMIC_ARP_AGE>";
+        output = arp.join(" ");
+      }
+    }
+  }
+
+  /*
+    BFD table final uptime and transition count.
+  */
+  if (command.indexOf("show sdwan bfd sessions") === 0) {
+    output = output.replace(
+      /(\s+ipsec\s+\d+\s+\d+\s+)\S+\s+\d+\s*$/,
+      "\$1<DYNAMIC_BFD_UPTIME> <DYNAMIC_BFD_TRANSITIONS>"
+    );
+  }
+
+  if (command.indexOf("show sdwan bfd summary") === 0) {
+    output = output.replace(
+      /^(\s*sessions-flap\s+).*$/i,
+      "\$1<DYNAMIC_BFD_FLAP_COUNTER>"
+    );
+  }
+
+  /*
+    System version/status resource and timing data.
+  */
+  if (command.indexOf("show version") === 0) {
+    output = output.replace(/^(\s*.+ uptime is\s+).*$/i, "$1<DYNAMIC_DEVICE_UPTIME>");
+    output = output.replace(/^(\s*Uptime for this control processor is\s+).*$/i, "$1<DYNAMIC_CONTROL_PROCESSOR_UPTIME>");
+    output = output.replace(/^(\s*System restarted at\s+).*$/i, "$1<DYNAMIC_RESTART_TIME>");
+    output = output.replace(/^(\s*System returned to ROM by .+ at\s+).*$/i, "$1<DYNAMIC_ROM_RETURN_TIME>");
+  }
+
+  if (command.indexOf("show sdwan system status") === 0) {
+    output = output.replace(/^(\s*System uptime:\s*).*$/i, "$1<DYNAMIC_SYSTEM_UPTIME>");
+    output = output.replace(/^(\s*Current time:\s*).*$/i, "$1<DYNAMIC_CURRENT_TIME>");
+    output = output.replace(/^(\s*Load average:\s*).*$/i, "$1<DYNAMIC_LOAD_AVERAGE>");
+    output = output.replace(/^(\s*Processes:\s*).*$/i, "$1<DYNAMIC_PROCESS_COUNT>");
+    output = output.replace(/^(\s*CPU states:\s*).*$/i, "$1<DYNAMIC_CPU_USAGE>");
+    output = output.replace(/^(\s*Memory usage:\s*).*$/i, "$1<DYNAMIC_MEMORY_USAGE>");
+    output = output.replace(/^(\s*Disk usage:\s*).*$/i, "$1<DYNAMIC_DISK_USAGE>");
+  }
+
+  if (command.indexOf("show ip ospf neighbor") === 0) {
+    output = output.replace(
+      /(\b(?:FULL|DOWN|INIT|EXSTART|EXCHANGE|LOADING)[^\n]*?\s+)\d{1,2}:\d{2}:\d{2}(\s+)/i,
+      "$1<DYNAMIC_OSPF_DEAD_TIMER>$2"
+    );
+  }
+
+  return output;
+}
+
+function lines(text, start, commandName) {
+  var result = [];
+  var source = text.replace(/\r/g, "").split("\n");
+
+  for (var i = 0; i < source.length; i++) {
+    var value = source[i].replace(/\s+$/, "");
+
+    if (E("blank").checked && !value.trim()) continue;
+    if (E("sep").checked && /^\s*(!|#|!!|exit|end)\s*$/i.test(value)) continue;
+
+    if (E("redact").checked) {
+      value = redact(value);
+    }
+
+    var key = maskDynamicValues(value, commandName);
+
+    if (E("white").checked) {
+      key = key.trim().replace(/\s+/g, " ");
+    }
+
+    if (E("case").checked) {
+      key = key.toLowerCase();
+    }
+
+    result.push({
+      n: start + i,
+      t: value,
+      k: key
+    });
+  }
+
+  return result;
+}
+
+function config(command) {
+  return command.indexOf("show sdwan run") === 0 ||
+    command.indexOf("show running-config") === 0 ||
+    command === "show run";
+}
+
+function groups(commands) {
+  var output = {};
+
+  commands.forEach(function(item) {
+    var command = normCmd(item.command);
+
+    if (E("scope").value === "config" && !config(command)) return;
+
+    if (!output[command]) output[command] = [];
+    output[command].push(item);
+  });
+
+  return output;
+}
+
+function align(a, b) {
+  var rows = [];
+  var i = 0;
+  var j = 0;
+
+  while (i < a.length && j < b.length) {
+    if (a[i].k === b[j].k) {
+      rows.push({ s: "unchanged", a: a[i++], b: b[j++] });
+      continue;
+    }
+
+    var rightMatch = -1;
+    var leftMatch = -1;
+
+    for (var offset = 1; offset <= 30; offset++) {
+      if (j + offset < b.length && a[i].k === b[j + offset].k) {
+        rightMatch = j + offset;
+        break;
+      }
+
+      if (i + offset < a.length && a[i + offset].k === b[j].k) {
+        leftMatch = i + offset;
+        break;
+      }
+    }
+
+    if (rightMatch >= 0 && leftMatch < 0) {
+      while (j < rightMatch) rows.push({ s: "added", b: b[j++] });
+      continue;
+    }
+
+    if (leftMatch >= 0 && rightMatch < 0) {
+      while (i < leftMatch) rows.push({ s: "removed", a: a[i++] });
+      continue;
+    }
+
+    rows.push({ s: "modified", a: a[i++], b: b[j++] });
+  }
+
+  while (i < a.length) rows.push({ s: "removed", a: a[i++] });
+  while (j < b.length) rows.push({ s: "added", b: b[j++] });
+
+  return rows;
+}
+
+function toks(value) {
+  return String(value).match(/\s+|[^\s]+/g) || [];
+}
+
+function diff(pre, post) {
+  var left = toks(pre);
+  var right = toks(post);
+  var leftChanged = [];
+  var rightChanged = [];
+
+  for (var i = 0; i < left.length; i++) leftChanged[i] = true;
+  for (var j = 0; j < right.length; j++) rightChanged[j] = true;
+
+  for (i = 0; i < left.length; i++) {
+    for (j = 0; j < right.length; j++) {
+      if (leftChanged[i] && rightChanged[j] && left[i].toLowerCase() === right[j].toLowerCase()) {
+        leftChanged[i] = false;
+        rightChanged[j] = false;
+        break;
+      }
+    }
+  }
+
+  return {
+    left: left,
+    right: right,
+    leftChanged: leftChanged,
+    rightChanged: rightChanged
+  };
+}
+
+function marked(difference, side) {
+  var list = side === "pre" ? difference.left : difference.right;
+  var changed = side === "pre" ? difference.leftChanged : difference.rightChanged;
+  var html = "";
+
+  for (var i = 0; i < list.length; i++) {
+    html += changed[i] && list[i].trim()
+      ? '<span class="mark">' + esc(list[i]) + "</span>"
+      : esc(list[i]);
+  }
+
+  return html;
+}
+
+function compare() {
+  if (!preText || !postText) return msg("Upload both files first.", true);
+
+  var preDevices = parse(preText);
+  var postDevices = parse(postText);
+  var preName = E("preDev").value;
+  var postName = E("postDev").value;
+
+  if (!preDevices[preName] || !postDevices[postName]) {
+    return msg("Select valid devices before comparing.", true);
+  }
+
+  msg("Matching command outputs by command name...");
+
+  var preCommands = preDevices[preName];
+  var postCommands = postDevices[postName];
+  var preGroups = groups(preCommands);
+  var postGroups = groups(postCommands);
+  var commandNames = [];
+
+  function addCommand(command) {
+    if (
+      (E("scope").value !== "config" || config(command)) &&
+      commandNames.indexOf(command) < 0
+    ) {
+      commandNames.push(command);
+    }
+  }
+
+  preCommands.forEach(function(item) { addCommand(normCmd(item.command)); });
+  postCommands.forEach(function(item) { addCommand(normCmd(item.command)); });
+
+  var sections = [];
+
+  commandNames.forEach(function(command) {
+    var preList = preGroups[command] || [];
+    var postList = postGroups[command] || [];
+    var count = Math.max(preList.length, postList.length);
+
+    for (var occurrence = 0; occurrence < count; occurrence++) {
+      var preBlock = preList[occurrence];
+      var postBlock = postList[occurrence];
+
+      var rows = align(
+        preBlock ? lines(preBlock.output, preBlock.start, command) : [],
+        postBlock ? lines(postBlock.output, postBlock.start, command) : []
+      );
+
+      sections.push({
+        id: command + "__" + occurrence,
+        name: command + (count > 1 ? " (occurrence " + (occurrence + 1) + ")" : ""),
+        n: rows.filter(function(row) { return row.s !== "unchanged"; }).length,
+        rows: rows
+      });
+    }
+  });
+
+  data = {
+    pre: displayDeviceName(preName),
+    post: displayDeviceName(postName),
+    sec: sections
+  };
+
+  filter = "all";
+  collapsed = false;
+  activeId = sections.length ? sections[0].id : "";
+
+  updateFilters();
+  render();
+  hideMsg();
+}
+
+function hideRow(row) {
+  return (E("changesOnly").checked && row.s === "unchanged") ||
+    (filter === "changes" && row.s === "unchanged") ||
+    (filter !== "all" && filter !== "changes" && row.s !== filter);
+}
+
+function sid(value) {
+  return value.replace(/[^A-Za-z0-9]/g, "_");
+}
+
+function row(item, rowData, side, difference) {
+  if (!item) return '<div class="row"><div class="cell">&nbsp;</div></div>';
+
+  var css = rowData.s === "removed" && side === "pre" ? "removed" :
+    rowData.s === "added" && side === "post" ? "added" : "";
+
+  var text = rowData.s === "modified" && difference
+    ? marked(difference, side)
+    : esc(item.t);
+
+  return '<div class="row ' + css + '"><div class="cell"><span class="num">' +
+    (item.n || "") + "</span><span>" + text + "</span></div></div>";
+}
+
+function collapseSection(id, value) {
+  var safe = sid(id);
+
+  ["pre", "post"].forEach(function(side) {
+    var holder = E(side + "-" + safe);
+
+    if (holder) {
+      holder.classList.toggle("collapsed", value);
+      holder.querySelector(".toggle").textContent = value ? ">" : "v";
+    }
+  });
+}
+
+function makeSection(section, side) {
+  var safe = sid(section.id);
+  var holder = document.createElement("div");
+  var title = document.createElement("div");
+  var rows = document.createElement("div");
+
+  holder.className = "section";
+  holder.id = side + "-" + safe;
+  holder.dataset.id = section.id;
+
+  title.className = "stitle";
+  title.innerHTML =
+    '<span class="toggle">v</span><span>[ ' + esc(section.name) +
+    ' ]</span><span class="scount">' + section.n + " change(s)</span>";
+
+  rows.className = "rows";
+
+  title.onclick = function() {
+    collapseSection(section.id, !holder.classList.contains("collapsed"));
+  };
+
+  holder.appendChild(title);
+  holder.appendChild(rows);
+
+  return { h: holder, r: rows };
+}
+
+function active(id) {
+  activeId = id;
+
+  document.querySelectorAll(".navitem").forEach(function(item) {
+    item.classList.toggle("active", item.dataset.id === id);
+  });
+}
+
+function jump(section) {
+  var safe = sid(section.id);
+  var preSection = E("pre-" + safe);
+  var postSection = E("post-" + safe);
+  var preScroll = E("preScroll");
+  var postScroll = E("postScroll");
+
+  collapseSection(section.id, false);
+  active(section.id);
+
+  collapsed = false;
+  E("collapse").textContent = "Collapse All";
+
+  syncing = true;
+
+  if (preSection) {
+    preScroll.scrollTo({
+      top: Math.max(
+        0,
+        preScroll.scrollTop +
+        preSection.getBoundingClientRect().top -
+        preScroll.getBoundingClientRect().top - 5
+      ),
+      behavior: "smooth"
+    });
+  }
+
+  if (postSection) {
+    postScroll.scrollTo({
+      top: Math.max(
+        0,
+        postScroll.scrollTop +
+        postSection.getBoundingClientRect().top -
+        postScroll.getBoundingClientRect().top - 5
+      ),
+      behavior: "smooth"
+    });
+  }
+
+  setTimeout(function() {
+    syncing = false;
+  }, 550);
+}
+
+function nav() {
+  var list = E("navList");
+  list.innerHTML = "";
+
+  data.sec.forEach(function(section) {
+    var item = document.createElement("div");
+
+    item.className = "navitem" +
+      (section.n ? " changed" : "") +
+      (section.id === activeId ? " active" : "");
+
+    item.dataset.id = section.id;
+    item.innerHTML =
+      '<span class="cmd">' + esc(section.name) + "</span>" +
+      '<span class="cnt">' + section.n + "</span>";
+
+    item.onclick = function() {
+      jump(section);
+    };
+
+    list.appendChild(item);
+  });
+}
+
+function summary() {
+  var count = { added: 0, removed: 0, modified: 0 };
+
+  data.sec.forEach(function(section) {
+    section.rows.forEach(function(rowData) {
+      if (count[rowData.s] !== undefined) count[rowData.s]++;
+    });
+  });
+
+  E("summary").innerHTML =
+    '<div class="badge"><b>Baseline:</b> ' + esc(data.pre) + "</div>" +
+    '<div class="badge"><b>Current:</b> ' + esc(data.post) + "</div>" +
+    '<div class="badge"><b>Commands:</b> ' + data.sec.length + "</div>" +
+    '<div class="badge">Added: <b style="color:var(--green)">' + count.added + "</b></div>" +
+    '<div class="badge">Removed: <b style="color:var(--red)">' + count.removed + "</b></div>" +
+    '<div class="badge">Modified: <b style="color:var(--amber)">' + count.modified + "</b></div>";
+}
+
+function render() {
+  if (!data) return;
+
+  summary();
+
+  E("preTitle").textContent = "PRE-CHECK / BASELINE - " + data.pre;
+  E("postTitle").textContent = "POST-CHECK / CURRENT - " + data.post;
+
+  E("preBody").innerHTML = "";
+  E("postBody").innerHTML = "";
+
+  data.sec.forEach(function(section) {
+    var pre = makeSection(section, "pre");
+    var post = makeSection(section, "post");
+
+    if (collapsed) {
+      pre.h.classList.add("collapsed");
+      post.h.classList.add("collapsed");
+      pre.h.querySelector(".toggle").textContent = ">";
+      post.h.querySelector(".toggle").textContent = ">";
+    }
+
+    section.rows.forEach(function(rowData) {
+      var preHolder = document.createElement("div");
+      var postHolder = document.createElement("div");
+
+      if (hideRow(rowData)) {
+        preHolder.className = "hidden";
+        postHolder.className = "hidden";
+      }
+
+      var difference = rowData.s === "modified" && rowData.a && rowData.b
+        ? diff(rowData.a.t, rowData.b.t)
+        : null;
+
+      preHolder.innerHTML = row(rowData.a, rowData, "pre", difference);
+      postHolder.innerHTML = row(rowData.b, rowData, "post", difference);
+
+      pre.r.appendChild(preHolder);
+      post.r.appendChild(postHolder);
+    });
+
+    E("preBody").appendChild(pre.h);
+    E("postBody").appendChild(post.h);
+  });
+
+  E("results").style.display = "block";
+  nav();
+  active(activeId);
+}
+
+function syncScroll(source, target) {
+  if (!E("sync").checked || syncing) return;
+
+  syncing = true;
+  target.scrollTop = source.scrollTop;
+
+  requestAnimationFrame(function() {
+    syncing = false;
+  });
+}
+
+function activeScroll() {
+  if (!data || syncing) return;
+
+  var scroll = E("preScroll");
+  var top = scroll.getBoundingClientRect().top;
+  var sections = scroll.querySelectorAll(".section");
+  var current = "";
+
+  for (var i = 0; i < sections.length; i++) {
+    if (sections[i].getBoundingClientRect().top <= top + 35) {
+      current = sections[i].dataset.id;
+    } else {
+      break;
+    }
+  }
+
+  if (current && current !== activeId) active(current);
+}
+
+E("preScroll").onscroll = function() {
+  syncScroll(E("preScroll"), E("postScroll"));
+  activeScroll();
+};
+
+E("postScroll").onscroll = function() {
+  syncScroll(E("postScroll"), E("preScroll"));
+  activeScroll();
+};
+
+function updateFilters() {
+  document.querySelectorAll(".filter").forEach(function(button) {
+    button.classList.toggle("active", button.dataset.f === filter);
+  });
+}
+
+function toggleNav() {
+  var workspace = E("workspace");
+  workspace.classList.toggle("hiddennav");
+
+  E("hideNav").textContent = workspace.classList.contains("hiddennav")
+    ? ">"
+    : "<";
+}
+
+function reportHtml() {
+  var html = [
+    "<!DOCTYPE html><html><head><meta charset='UTF-8'>",
+    "<title>ChangeLens Report</title>",
+    "<style>body{font-family:Arial;margin:25px;color:#172033}h1{color:#0c3f72}.meta{padding:12px;background:#f3f7fc;border:1px solid #cbd9e8;border-radius:5px}h2{margin-top:28px;padding:9px;background:#e7f0fb;border-left:4px solid #1769d2;font-size:16px}table{width:100%;border-collapse:collapse;margin-bottom:20px;font:12px Consolas}th,td{border:1px solid #c8d1db;padding:6px;vertical-align:top;white-space:pre-wrap}th{background:#edf3fa;text-align:left}.added{background:#e2f6e9}.removed{background:#ffe5e5}.modified{background:#fff4d7}</style></head><body>",
+    "<h1>ChangeLens</h1>",
+    "<div class='meta'><b>Baseline:</b> " + esc(data.pre) + "<br>",
+    "<b>Current:</b> " + esc(data.post) + "<br>",
+    "<b>Generated:</b> " + esc(new Date().toLocaleString()) + "</div>"
+  ];
+
+  data.sec.forEach(function(section) {
+    html.push("<h2>" + esc(section.name) + " - " + section.n + " change(s)</h2>");
+    html.push("<table><tr><th>Status</th><th>Pre-check</th><th>Post-check</th></tr>");
+
+    section.rows.forEach(function(rowData) {
+      html.push(
+        "<tr class='" + esc(rowData.s) + "'>" +
+        "<td>" + esc(rowData.s) + "</td>" +
+        "<td>" + esc(rowData.a ? rowData.a.t : "") + "</td>" +
+        "<td>" + esc(rowData.b ? rowData.b.t : "") + "</td></tr>"
+      );
+    });
+
+    html.push("</table>");
+  });
+
+  html.push("</body></html>");
+  return html.join("\n");
+}
+
+function download(kind) {
+  if (!data) return msg("Run a comparison first.", true);
+
+  if (kind === "txt") {
+    var output = ["ChangeLens Report", "Baseline: " + data.pre, "Current: " + data.post, ""];
+
+    data.sec.forEach(function(section) {
+      output.push("\n[ " + section.name + " ]");
+
+      section.rows.forEach(function(rowData) {
+        var marker = rowData.s === "added" ? "+" :
+          rowData.s === "removed" ? "-" :
+          rowData.s === "modified" ? "~" : " ";
+
+        output.push(marker + " PRE : " + (rowData.a ? rowData.a.t : ""));
+        output.push(marker + " POST: " + (rowData.b ? rowData.b.t : ""));
+      });
+    });
+
+    var textUrl = URL.createObjectURL(
+      new Blob([output.join("\n")], { type:"text/plain;charset=utf-8" })
+    );
+
+    var textLink = document.createElement("a");
+    textLink.href = textUrl;
+    textLink.download = "cisco-changelens-report.txt";
+    textLink.click();
+    URL.revokeObjectURL(textUrl);
+  }
+
+  if (kind === "html") {
+    var htmlUrl = URL.createObjectURL(
+      new Blob([reportHtml()], { type:"text/html;charset=utf-8" })
+    );
+
+    var htmlLink = document.createElement("a");
+    htmlLink.href = htmlUrl;
+    htmlLink.download = "cisco-changelens-report.html";
+    htmlLink.click();
+    URL.revokeObjectURL(htmlUrl);
+  }
+
+  if (kind === "pdf") {
+    var reportWindow = window.open("", "_blank");
+
+    if (!reportWindow) {
+      return msg("Popup blocked. Allow popups and try again.", true);
+    }
+
+    reportWindow.document.write(reportHtml());
+    reportWindow.document.close();
+
+    reportWindow.onload = function() {
+      reportWindow.focus();
+      reportWindow.print();
+    };
+  }
+}
+
+function reset() {
+  preText = "";
+  postText = "";
+  data = null;
+  preFileData = null;
+  postFileData = null;
+  filter = "all";
+  collapsed = false;
+  activeId = "";
+
+  E("preFile").value = "";
+  E("postFile").value = "";
+
+  fileInfo("pre", null);
+  fileInfo("post", null);
+
+  E("preDev").innerHTML = "<option>Upload files first</option>";
+  E("postDev").innerHTML = "<option>Upload files first</option>";
+
+  E("preBody").innerHTML = "";
+  E("postBody").innerHTML = "";
+  E("navList").innerHTML = "";
+  E("summary").innerHTML = "";
+
+  E("results").style.display = "none";
+  hideMsg();
+
+  E("workspace").classList.remove("hiddennav");
+  E("hideNav").textContent = "<";
+
+  E("collapse").textContent = "Collapse All";
+  E("view").textContent = "Unified View";
+  E("shell").classList.remove("unified");
+
+  E("reportFormat").value = "";
+  E("preset").value = "smart";
+  applyPreset("smart");
+
+  updateFilters();
+}
+
+function theme(name) {
+  document.body.classList.toggle("light", name === "light");
+  E("theme").textContent = name === "light" ? "Dark Theme" : "Light Theme";
+
+  try {
+    localStorage.setItem("cl-theme", name);
+  } catch (error) {}
+}
+
+function resizeNavigator() {
+  var handle = E("resize");
+  var workspace = E("workspace");
+  var dragging = false;
+
+  handle.onpointerdown = function(event) {
+    if (window.innerWidth <= 1100) return;
+
+    dragging = true;
+    handle.classList.add("drag");
+    handle.setPointerCapture(event.pointerId);
+    document.body.style.userSelect = "none";
+  };
+
+  handle.onpointermove = function(event) {
+    if (!dragging) return;
+
+    var width = event.clientX - workspace.getBoundingClientRect().left;
+    width = Math.max(190, Math.min(width, 520));
+
+    document.documentElement.style.setProperty("--nav-width", width + "px");
+  };
+
+  function stop() {
+    dragging = false;
+    handle.classList.remove("drag");
+    document.body.style.userSelect = "";
+  }
+
+  handle.onpointerup = stop;
+  handle.onpointercancel = stop;
+}
+
+E("compare").onclick = compare;
+
+E("changesOnly").onchange = function() {
+  if (data) render();
+};
+
+E("preset").onchange = function() {
+  applyPreset(E("preset").value);
+};
+
+E("reportFormat").onchange = function() {
+  var format = E("reportFormat").value;
+
+  if (format) {
+    download(format);
+    E("reportFormat").value = "";
+  }
+};
+
+E("view").onclick = function() {
+  unified = !unified;
+  E("shell").classList.toggle("unified", unified);
+
+  E("view").textContent = unified
+    ? "Side-by-Side View"
+    : "Unified View";
+};
+
+E("hideNav").onclick = toggleNav;
+E("showNav").onclick = toggleNav;
+
+E("collapse").onclick = function() {
+  collapsed = !collapsed;
+
+  document.querySelectorAll(".section").forEach(function(section) {
+    section.classList.toggle("collapsed", collapsed);
+    section.querySelector(".toggle").textContent = collapsed ? ">" : "v";
+  });
+
+  E("collapse").textContent = collapsed ? "Expand All" : "Collapse All";
+};
+
+E("reset").onclick = reset;
+
+E("theme").onclick = function() {
+  theme(document.body.classList.contains("light") ? "dark" : "light");
+};
+
+document.querySelectorAll(".filter").forEach(function(button) {
+  button.onclick = function() {
+    filter = button.dataset.f;
+    updateFilters();
+    if (data) render();
+  };
+});
+
+resizeNavigator();
+applyPreset("smart");
+
+try {
+  theme(localStorage.getItem("cl-theme") || "dark");
+} catch (error) {
+  theme("dark");
+}
+</script>
+</body>
+</html>
